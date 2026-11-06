@@ -1,0 +1,16 @@
+# Hace una consulta pequeña cada 3 días para que el proyecto gratuito de Supabase no se pause.
+name: Mantener activo
+on:
+  schedule:
+    - cron: "17 7 */3 * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+            "https://thzcdyjrimyxoimuykdp.supabase.co/rest/v1/rpc/ficha" \
+            -H "apikey: sb_publishable_8igMbXwPV2EXQGd_em6QHQ_mnS5L_M3" \
+            -H "Content-Type: application/json" \
+            -d '{"sid":"00000000-0000-0000-0000-000000000000"}'
