@@ -1,5 +1,5 @@
 // Ficha de ejercicios: guarda la app, las fichas y los vídeos para verlos sin internet.
-const SHELL = "shell-v1";
+const SHELL = "shell-v2";
 const MEDIA = "media-v1";
 const SHELL_FILES = ["./", "./index.html", "./app.js", "./import.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"];
