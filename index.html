@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ficha de ejercicios</title>
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#5f7a6a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ejercicios">
@@ -14,7 +14,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 [hidden]{display:none !important}
 :root{
@@ -206,19 +206,23 @@ main.pupil{gap:10px}
 .pslides::-webkit-scrollbar{display:none}
 .pslides .lvl{flex:0 0 90%;scroll-snap-align:start}
 html,body{max-width:100%;overflow-x:hidden}
-/* --- Visual Minimal: blanco y negro, azul solo para lo avanzado --- */
-:root{--bg:#ffffff;--surface:#ffffff;--ink:#111111;--muted:#6b6b6b;--line:#e6e6e6;--field:#f5f5f5;--primary:#111111;--primary-ink:#fff;--adv:#3f6ff5;--adv-ink:#fff;--danger:#c6352a;--display:"Inter","Figtree",-apple-system,"Segoe UI",Roboto,sans-serif;--body:"Inter","Figtree",-apple-system,"Segoe UI",Roboto,sans-serif;color-scheme:light}
-header.top{background:#fff;color:#111;border-bottom:1px solid #e6e6e6;border-radius:0}
-header.top p{color:#6b6b6b}.eyebrow{color:#3f6ff5}
-.back,.ghost{color:#111;border-color:#e6e6e6;background:#f5f5f5}
-.ghost.strong{background:#111;color:#fff;border-color:#111}
-.disp{font-weight:800;font-stretch:normal;text-transform:none;letter-spacing:-.035em}
-.student,.ex,.pex{box-shadow:none;border-radius:16px}
-.avatar{background:#f0f0f0;color:#111}
-.chip{border-radius:6px;background:#f2f2f2;color:#111}
-.chip.adv{background:#3f6ff5;color:#fff}
+/* --- Visual Arena: arena, verde salvia y dorado, títulos con letra elegante --- */
+:root{--bg:#f2eee7;--surface:#fbf9f5;--ink:#2d2a26;--muted:#7d756b;--line:#e4ddd1;--field:#f6f2ec;--primary:#5f7a6a;--primary-ink:#fff;--adv:#c9962f;--adv-ink:#fff;--danger:#b5452f;--display:"Lora",Georgia,serif;--body:"Inter","Figtree",-apple-system,"Segoe UI",Roboto,sans-serif;color-scheme:light}
+header.top{background:#5f7a6a;color:#fff;border-radius:0 0 28px 28px}
+header.top p{color:rgba(255,255,255,.85)}
+.disp{font-weight:600;font-stretch:normal;text-transform:none;letter-spacing:0}
+.eyebrow{color:#f2e3c4;font-family:var(--body)}
+.back{background:rgba(255,255,255,.18);color:#fff}
+.ghost{color:#fff;border-color:rgba(255,255,255,.45);background:transparent}
+.ghost.strong{background:#e0b25e;color:#3a2a08;border-color:#e0b25e}
+.student,.ex,.pex{box-shadow:none;border-radius:24px}
+.avatar{background:#e8efe9;color:#5f7a6a}
+.chip{background:#eef2ef;color:#4e6658}
+.chip.adv{background:#f3e3bf;color:#6b4d10}
+.fab{background:#5f7a6a;color:#fff}.fab .plus{background:#e0b25e;color:#3a2a08}
 .num,.pex .n{color:#fff!important}
-.pex .n:not([style]),.num:not([style]){background:#111}
+.pex .n:not([style]),.num:not([style]){background:#c9962f}
+.status h2{font-family:var(--display);text-transform:none}
 .bulk-row{display:flex;flex-direction:column;gap:3px;border:1px solid var(--line);border-radius:14px;padding:10px 12px}
 .bulk-row b{font-weight:700}
 .bulk-adv{font-size:14px;color:var(--adv)}
