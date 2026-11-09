@@ -1,5 +1,5 @@
 // Ficha de ejercicios: guarda la app, las fichas y los vídeos para verlos sin internet.
-const SHELL = "shell-v3";
+const SHELL = "shell-v4";
 const MEDIA = "media-v1";
 const SHELL_FILES = ["./", "./index.html", "./app.js", "./import.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"];
@@ -57,6 +57,12 @@ self.addEventListener("fetch", (e) => {
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(SHELL).then(c => c.put("./index.html", copy)); return res; })
       .catch(() => caches.match("./index.html", { ignoreSearch: true })));
+    return;
+  }
+  if (url.origin === self.location.origin) {
+    // archivos de la app: siempre la versión nueva si hay internet
+    e.respondWith(fetch(req).then(res => { if (res.ok) { const copy = res.clone(); caches.open(SHELL).then(c => c.put(req, copy)); } return res; })
+      .catch(() => caches.match(req, { ignoreSearch: true })));
     return;
   }
   e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => {
