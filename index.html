@@ -219,6 +219,9 @@ header.top p{color:#6b6b6b}.eyebrow{color:#3f6ff5}
 .chip.adv{background:#3f6ff5;color:#fff}
 .num,.pex .n{color:#fff!important}
 .pex .n:not([style]),.num:not([style]){background:#111}
+.bulk-row{display:flex;flex-direction:column;gap:3px;border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.bulk-row b{font-weight:700}
+.bulk-adv{font-size:14px;color:var(--adv)}
 </style>
 </head>
 <body>
@@ -301,6 +304,20 @@ header.top p{color:#6b6b6b}.eyebrow{color:#3f6ff5}
     <div class="sheet-foot">
       <button class="btn" id="cNo">Cancelar</button>
       <button class="btn solid-danger" id="cYes">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="bulk" role="dialog" aria-modal="true" aria-labelledby="bTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="bTitle" class="disp">Importar vídeos</h2></div>
+    <div class="sheet-body">
+      <label class="pick" for="bFile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v4h16v-4"/></svg>Elegir vídeos<input id="bFile" type="file" accept="video/*,image/*" multiple></label>
+      <div id="bList" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" id="bCancel">Cancelar</button>
+      <button class="btn primary" id="bGo" disabled>Crear ejercicios</button>
     </div>
   </div>
 </div>

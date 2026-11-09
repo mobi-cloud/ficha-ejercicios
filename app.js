@@ -9,7 +9,9 @@
     { key: "prone", label: "Boca abajo", color: "#a98bf5" },
     { key: "standing", label: "De pie", color: "#43c487" }
   ];
-  const LEVELS = [{ key: "normal", title: "Versión normal" }, { key: "advanced", title: "Versión avanzada" }];
+  // Cada ejercicio: una versión normal y 0, 1 o más versiones avanzadas (advs)
+  const levelsOf = (e) => [{ L: e?.normal || {}, adv: false, label: "Normal" }]
+    .concat((e?.advs || []).map((L, i, a) => ({ L, adv: true, label: a.length > 1 ? "Avanzado " + (i + 1) : "Avanzado" })));
   const posOf = (k) => POSITIONS.find(p => p.key === k);
   const $ = (id) => document.getElementById(id);
 
@@ -71,9 +73,9 @@
   const params = new URLSearchParams(location.search);
   const alumnoId = params.get("a");
 
-  function renderLevelBlock(L, adv) {
+  function renderLevelBlock(L, adv, label) {
     if (!levelHasContent(L)) return null;
-    const box = el("div", { class: "lvl" + (adv ? " adv" : "") }, el("span", { class: "lvl-t", text: adv ? "Avanzado" : "Normal" }));
+    const box = el("div", { class: "lvl" + (adv ? " adv" : "") }, el("span", { class: "lvl-t", text: label || (adv ? "Avanzado" : "Normal") }));
     if (adv && L.variant) box.append(el("p", { class: "var", text: L.variant }));
     const m = mediaNode(L.media); if (m) box.append(m);
     if (L.dose) box.append(el("div", { class: "pdose" }, el("span", { text: "Series · repeticiones · tiempo" }), el("b", { text: L.dose })));
@@ -106,13 +108,13 @@
       if (i === 0) det.open = true;
       det.append(el("summary", null, el("span", { class: "n", text: String(i + 1), style: p ? "background:" + p.color : null }), el("span", { class: "nm", text: e.name })));
       const body = el("div", { class: "pbody" });
-      const a = renderLevelBlock(e.normal, false), b = renderLevelBlock(e.advanced, true);
-      if (a && b) body.append(el("div", { class: "pslides" }, a, b)); else body.append(a || b || el("p", { class: "empty-level", text: "Sin detalles." }));
+      const blocks = levelsOf(e).map(x => renderLevelBlock(x.L, x.adv, x.label)).filter(Boolean);
+      if (blocks.length > 1) body.append(el("div", { class: "pslides" }, blocks)); else body.append(blocks[0] || el("p", { class: "empty-level", text: "Sin detalles." }));
       det.append(body);
       main.append(det);
     });
     const urls = [];
-    list.forEach(e => LEVELS.forEach(({ key }) => { const m = e[key]?.media; if (m && (m.kind === "image" || m.kind === "video")) urls.push(m.url); }));
+    list.forEach(e => levelsOf(e).forEach(({ L }) => { const m = L.media; if (m && (m.kind === "image" || m.kind === "video")) urls.push(m.url); }));
     precache(urls);
   }
   async function startAlumno() {
@@ -147,11 +149,12 @@
     const normal = r.normal ? { ...r.normal } : null;
     const position = normal?.position || "";
     if (normal) delete normal.position;
-    return { id: r.id, student_id: r.student_id, name: r.name || "", ord: r.ord ?? 0, position, normal, advanced: r.advanced || null, updated_at: r.updated_at };
+    const advs = Array.isArray(r.advanced) ? r.advanced.filter(Boolean) : (r.advanced ? [r.advanced] : []);
+    return { id: r.id, student_id: r.student_id, name: r.name || "", ord: r.ord ?? 0, position, normal, advs, updated_at: r.updated_at };
   }
-  const toRow = (e) => ({ id: e.id, student_id: e.student_id, name: e.name, ord: e.ord, normal: { ...(e.normal || {}), position: e.position || "" }, advanced: e.advanced, updated_at: new Date().toISOString() });
+  const toRow = (e) => ({ id: e.id, student_id: e.student_id, name: e.name, ord: e.ord, normal: { ...(e.normal || {}), position: e.position || "" }, advanced: (e.advs && e.advs.length) ? e.advs : null, updated_at: new Date().toISOString() });
   const exOf = (sid) => exercises.filter(e => e.student_id === sid);
-  const mediaPaths = (e) => LEVELS.map(({ key }) => e?.[key]?.media?.path).filter(Boolean);
+  const mediaPaths = (e) => levelsOf(e).map(({ L }) => L.media?.path).filter(Boolean);
   const pathInUse = (path, exceptIds) => exercises.some(x => !exceptIds.includes(x.id) && mediaPaths(x).includes(path));
 
   async function refresh() {
@@ -180,14 +183,15 @@
       if (s) top.append(el("div", { class: "head-actions" },
         el("button", { class: "ghost strong", onclick: () => shareStudent(s) }, "Enviar ficha"),
         el("a", { class: "ghost", href: studentLink(s.id), target: "_blank", rel: "noopener" }, "Ver como alumno"),
-        el("button", { class: "ghost", onclick: () => openStudentForm(s.id) }, "Editar nombre")));
+        el("button", { class: "ghost", onclick: () => openStudentForm(s.id) }, "Editar nombre"),
+        el("button", { class: "ghost", onclick: openBulk }, "Importar vídeos")));
       if (!list.length) main.append(el("div", { class: "status" }, el("h2", { text: "Ningún ejercicio" }), el("p", { text: "Toca “Añadir ejercicio” para armar la ficha." })));
       else {
         const used = POSITIONS.filter(p => list.some(e => e.position === p.key));
         if (used.length) main.append(el("div", { class: "legend" }, used.map(p => el("span", null, el("i", { style: "background:" + p.color }), p.label))));
       }
       list.forEach((e, i) => {
-        const m = e.normal?.media || e.advanced?.media;
+        const m = e.normal?.media || e.advs[0]?.media;
         const thumb = el("div", { class: "thumb" });
         if (m?.kind === "image") thumb.append(el("img", { src: m.url, alt: "", loading: "lazy" }));
         else if (m?.kind === "video") thumb.append(el("video", { src: m.url + "#t=0.5", muted: true, playsinline: true, preload: "metadata" }));
@@ -195,7 +199,8 @@
         else thumb.append(svg(icons.dumbbell));
         const chips = el("div", { class: "chips" });
         if (e.normal?.dose) chips.append(el("span", { class: "chip", text: e.normal.dose }));
-        if (levelHasContent(e.advanced)) chips.append(el("span", { class: "chip adv", text: "Avanzado" + (e.advanced.dose ? " · " + e.advanced.dose : "") }));
+        const nA = e.advs.filter(levelHasContent).length;
+        if (nA) chips.append(el("span", { class: "chip adv", text: nA === 1 ? "Avanzado" + (e.advs[0].dose ? " · " + e.advs[0].dose : "") : nA + " avanzados" }));
         const p = posOf(e.position);
         const card = el("button", { class: "ex", onclick: () => openDetail(e.id) },
           el("span", { class: "num", text: String(i + 1), style: p ? "background:" + p.color : null }), thumb,
@@ -268,7 +273,7 @@
     if (L.instructions) p.append(el("div", { class: "field" }, el("span", { class: "label", text: "Cómo hacerlo" }), el("p", { class: "instr", text: L.instructions })));
     return p;
   }
-  function openDetail(id) { currentId = id; currentLevel = "normal"; renderDetail(); $("detail").classList.add("open"); }
+  function openDetail(id) { currentId = id; currentLevel = 0; renderDetail(); $("detail").classList.add("open"); }
   function closeDetail() { $("detail").classList.remove("open"); currentId = null; }
   function renderDetail() {
     const e = exercises.find(x => x.id === currentId);
@@ -276,17 +281,17 @@
     $("dTitle").textContent = e.name || "Sin nombre";
     $("dCopy").hidden = students.length < 2;
     const body = $("dBody"); body.replaceChildren();
-    if (!levelHasContent(e.advanced)) { const only = levelPanel(e.normal, false); only.style.flex = "none"; body.append(only); return; }
-    const bN = el("button", { "aria-pressed": "true" }, "Normal");
-    const bA = el("button", { class: "adv", "aria-pressed": "false" }, "Avanzado");
-    const slides = el("div", { class: "slides" }, levelPanel(e.normal, false), levelPanel(e.advanced, true));
-    const mark = (l) => { currentLevel = l; bN.setAttribute("aria-pressed", String(l === "normal")); bA.setAttribute("aria-pressed", String(l === "advanced")); };
-    const go = (l, smooth) => { mark(l); slides.scrollTo({ left: l === "advanced" ? slides.scrollWidth : 0, behavior: smooth ? "smooth" : "auto" }); };
-    bN.addEventListener("click", () => go("normal", true));
-    bA.addEventListener("click", () => go("advanced", true));
-    slides.addEventListener("scroll", () => mark(slides.scrollLeft > slides.clientWidth / 2 ? "advanced" : "normal"), { passive: true });
-    body.append(el("div", { class: "seg", role: "group", "aria-label": "Nivel" }, bN, bA), slides);
-    const l = currentLevel; requestAnimationFrame(() => go(l, false));
+    const levels = levelsOf(e).filter((x, i) => i === 0 || levelHasContent(x.L));
+    if (levels.length === 1) { const only = levelPanel(e.normal, false); only.style.flex = "none"; body.append(only); return; }
+    const btns = levels.map((x, i) => el("button", { class: x.adv ? "adv" : null, "aria-pressed": String(i === 0) }, x.label));
+    const slides = el("div", { class: "slides" }, levels.map(x => levelPanel(x.L, x.adv)));
+    const mark = (i) => { currentLevel = i; btns.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i))); };
+    const go = (i, smooth) => { mark(i); slides.scrollTo({ left: slides.children[i].offsetLeft - slides.children[0].offsetLeft, behavior: smooth ? "smooth" : "auto" }); };
+    btns.forEach((b, i) => b.addEventListener("click", () => go(i, true)));
+    slides.addEventListener("scroll", () => mark(Math.min(levels.length - 1, Math.round(slides.scrollLeft / Math.max(1, slides.children[1].offsetLeft - slides.children[0].offsetLeft)))), { passive: true });
+    const seg = el("div", { class: "seg", role: "group", "aria-label": "Nivel", style: "grid-template-columns:repeat(" + levels.length + ",1fr)" }, btns);
+    body.append(seg, slides);
+    const l = Math.min(currentLevel || 0, levels.length - 1); requestAnimationFrame(() => go(l, false));
   }
 
   // ---------- copiar ----------
@@ -308,15 +313,14 @@
 
   // ---------- formulario de ejercicio ----------
   const emptyLevel = () => ({ dose: "", instructions: "", variant: "", media: null, mode: "file", pendingFile: null, previewUrl: null, linkUrl: "" });
+  function toDraftLevel(src) {
+    const L = emptyLevel();
+    Object.assign(L, { dose: src?.dose || "", instructions: src?.instructions || "", variant: src?.variant || "", media: src?.media || null });
+    if (src?.media && src.media.kind !== "image" && src.media.kind !== "video") { L.mode = "link"; L.linkUrl = src.media.url; }
+    return L;
+  }
   function fillDraft(e) {
-    draft = { normal: emptyLevel(), advanced: emptyLevel() };
-    for (const { key } of LEVELS) {
-      const src = e?.[key] || {};
-      Object.assign(draft[key], { dose: src.dose || "", instructions: src.instructions || "", variant: src.variant || "", media: src.media || null });
-      if (src.media && src.media.kind !== "image" && src.media.kind !== "video") { draft[key].mode = "link"; draft[key].linkUrl = src.media.url; }
-    }
-    draft.hasAdv = levelHasContent(e?.advanced);
-    draft.position = e?.position || "";
+    draft = { normal: toDraftLevel(e?.normal), advs: (e?.advs || []).filter(levelHasContent).map(toDraftLevel), position: e?.position || "" };
     $("fName").value = e?.name || "";
     renderPositions(); renderLevels();
   }
@@ -359,61 +363,63 @@
       onclick: () => { draft.position = draft.position === p.key ? "" : p.key; renderPositions(); } }, el("i", { style: "background:" + p.color }), p.label)));
   }
   function closeForm() {
-    for (const { key } of LEVELS) if (draft?.[key]?.previewUrl) URL.revokeObjectURL(draft[key].previewUrl);
+    if (draft) [draft.normal, ...draft.advs].forEach(L => { if (L.previewUrl) URL.revokeObjectURL(L.previewUrl); });
     draft = null; editingId = null; $("form").classList.remove("open");
+  }
+  function levelEditor(L, idx) {
+    const adv = idx >= 0;
+    const title = !adv ? (draft.advs.length ? "Versión normal" : "Ejercicio") : (draft.advs.length > 1 ? "Avanzado " + (idx + 1) : "Versión avanzada");
+    const key = adv ? "a" + idx : "n";
+    const head = el("h3", null, el("span", { class: "tag" }), title);
+    if (adv) head.append(el("button", { type: "button", class: "rm-adv", onclick: () => { draft.advs.splice(idx, 1); renderLevels(); } }, "Quitar"));
+    const box = el("section", { class: "level" + (adv ? " adv-box" : "") }, head);
+    if (adv) {
+      const vin = el("input", { id: "f-" + key + "-variant", type: "text", placeholder: "Ej.: Puente con pierna estirada al techo", value: L.variant });
+      vin.addEventListener("input", () => L.variant = vin.value);
+      box.append(el("div", { class: "field" }, el("label", { for: vin.id, text: "Nombre de la variante" }), vin));
+    }
+    const din = el("input", { id: "f-" + key + "-dose", type: "text", placeholder: "Ej.: 3 × 10, o 2 minutos", value: L.dose });
+    din.addEventListener("input", () => L.dose = din.value);
+    box.append(el("div", { class: "field" }, el("label", { for: din.id, text: "Series, repeticiones o tiempo" }), din));
+    const mfield = el("div", { class: "field" }, el("span", { class: "flabel", text: "Vídeo o foto" }),
+      el("div", { class: "mtabs", role: "group" },
+        el("button", { type: "button", "aria-pressed": String(L.mode === "file"), onclick: () => { L.mode = "file"; renderLevels(); } }, "Foto o vídeo del móvil"),
+        el("button", { type: "button", "aria-pressed": String(L.mode === "link"), onclick: () => { L.mode = "link"; renderLevels(); } }, "Enlace (YouTube o Drive)")));
+    if (L.mode === "link") {
+      const yin = el("input", { id: "f-" + key + "-yt", type: "url", inputmode: "url", placeholder: "https://…", value: L.linkUrl });
+      yin.addEventListener("input", () => L.linkUrl = yin.value);
+      mfield.append(yin);
+    } else {
+      const hasFile = L.pendingFile || (L.media && (L.media.kind === "image" || L.media.kind === "video"));
+      if (hasFile) {
+        const isVid = L.pendingFile ? L.pendingFile.type.startsWith("video") : L.media.kind === "video";
+        const src = L.previewUrl || L.media.url;
+        mfield.append(el("div", { class: "preview" },
+          isVid ? el("video", { src, controls: true, playsinline: true, preload: "metadata" }) : el("img", { src, alt: "" }),
+          el("button", { type: "button", class: "rm", onclick: () => { if (L.previewUrl) URL.revokeObjectURL(L.previewUrl); L.pendingFile = null; L.previewUrl = null; L.media = null; renderLevels(); } }, "Quitar")));
+      }
+      const fin = el("input", { id: "f-" + key + "-file", type: "file", accept: "image/*,video/*" });
+      fin.addEventListener("change", () => {
+        const f = fin.files && fin.files[0]; if (!f) return;
+        if (f.size > MAX_BYTES) { toast("Este archivo pesa " + Math.round(f.size / 1048576) + " MB. El límite es 50 MB.", 4200); fin.value = ""; return; }
+        if (L.previewUrl) URL.revokeObjectURL(L.previewUrl);
+        L.pendingFile = f; L.previewUrl = URL.createObjectURL(f); renderLevels();
+      });
+      mfield.append(el("label", { class: "pick", for: fin.id }, svg(icons.cam), hasFile ? "Cambiar foto o vídeo" : "Hacer o elegir foto/vídeo", fin),
+        el("p", { class: "hint", text: "Vídeos de hasta 50 MB." }));
+    }
+    box.append(mfield);
+    const tin = el("textarea", { id: "f-" + key + "-instr", placeholder: "Cómo se hace, qué sentir, qué evitar…" });
+    tin.value = L.instructions; tin.addEventListener("input", () => L.instructions = tin.value);
+    box.append(el("div", { class: "field" }, el("label", { for: tin.id, text: "Instrucciones" }), tin));
+    return box;
   }
   function renderLevels() {
     const wrap = $("levels"); wrap.replaceChildren();
-    LEVELS.forEach(({ key, title }) => {
-      const L = draft[key];
-      if (key === "advanced" && !draft.hasAdv) {
-        wrap.append(el("button", { type: "button", class: "add-adv", onclick: () => { draft.hasAdv = true; renderLevels(); } }, el("span", { class: "tag" }), "Añadir versión avanzada (opcional)"));
-        return;
-      }
-      const head = el("h3", null, el("span", { class: "tag" }), key === "normal" && !draft.hasAdv ? "Ejercicio" : title);
-      if (key === "advanced") head.append(el("button", { type: "button", class: "rm-adv", onclick: () => { draft.hasAdv = false; renderLevels(); } }, "Quitar"));
-      const box = el("section", { class: "level" + (key === "advanced" ? " adv-box" : "") }, head);
-      if (key === "advanced") {
-        const vin = el("input", { id: "f-adv-variant", type: "text", placeholder: "Opcional. Ej.: con mancuernas de 8 kg", value: L.variant });
-        vin.addEventListener("input", () => L.variant = vin.value);
-        box.append(el("div", { class: "field" }, el("label", { for: vin.id, text: "Nombre de la variante" }), vin));
-      }
-      const din = el("input", { id: "f-" + key + "-dose", type: "text", placeholder: "Ej.: 3 × 10, o 2 minutos", value: L.dose });
-      din.addEventListener("input", () => L.dose = din.value);
-      box.append(el("div", { class: "field" }, el("label", { for: din.id, text: "Series, repeticiones o tiempo" }), din));
-      const mfield = el("div", { class: "field" }, el("span", { class: "flabel", text: "Vídeo o foto" }),
-        el("div", { class: "mtabs", role: "group" },
-          el("button", { type: "button", "aria-pressed": String(L.mode === "file"), onclick: () => { L.mode = "file"; renderLevels(); } }, "Foto o vídeo del móvil"),
-          el("button", { type: "button", "aria-pressed": String(L.mode === "link"), onclick: () => { L.mode = "link"; renderLevels(); } }, "Enlace (YouTube o Drive)")));
-      if (L.mode === "link") {
-        const yin = el("input", { id: "f-" + key + "-yt", type: "url", inputmode: "url", placeholder: "https://…", value: L.linkUrl });
-        yin.addEventListener("input", () => L.linkUrl = yin.value);
-        mfield.append(yin);
-      } else {
-        const hasFile = L.pendingFile || (L.media && (L.media.kind === "image" || L.media.kind === "video"));
-        if (hasFile) {
-          const isVid = L.pendingFile ? L.pendingFile.type.startsWith("video") : L.media.kind === "video";
-          const src = L.previewUrl || L.media.url;
-          mfield.append(el("div", { class: "preview" },
-            isVid ? el("video", { src, controls: true, playsinline: true, preload: "metadata" }) : el("img", { src, alt: "" }),
-            el("button", { type: "button", class: "rm", onclick: () => { if (L.previewUrl) URL.revokeObjectURL(L.previewUrl); L.pendingFile = null; L.previewUrl = null; L.media = null; renderLevels(); } }, "Quitar")));
-        }
-        const fin = el("input", { id: "f-" + key + "-file", type: "file", accept: "image/*,video/*" });
-        fin.addEventListener("change", () => {
-          const f = fin.files && fin.files[0]; if (!f) return;
-          if (f.size > MAX_BYTES) { toast("Este archivo pesa " + Math.round(f.size / 1048576) + " MB. El límite es 50 MB.", 4200); fin.value = ""; return; }
-          if (L.previewUrl) URL.revokeObjectURL(L.previewUrl);
-          L.pendingFile = f; L.previewUrl = URL.createObjectURL(f); renderLevels();
-        });
-        mfield.append(el("label", { class: "pick", for: fin.id }, svg(icons.cam), hasFile ? "Cambiar foto o vídeo" : "Hacer o elegir foto/vídeo", fin),
-          el("p", { class: "hint", text: "Vídeos de hasta 50 MB." }));
-      }
-      box.append(mfield);
-      const tin = el("textarea", { id: "f-" + key + "-instr", placeholder: "Cómo se hace, qué sentir, qué evitar…" });
-      tin.value = L.instructions; tin.addEventListener("input", () => L.instructions = tin.value);
-      box.append(el("div", { class: "field" }, el("label", { for: tin.id, text: "Instrucciones" }), tin));
-      wrap.append(box);
-    });
+    wrap.append(levelEditor(draft.normal, -1));
+    draft.advs.forEach((L, i) => wrap.append(levelEditor(L, i)));
+    wrap.append(el("button", { type: "button", class: "add-adv", onclick: () => { draft.advs.push(emptyLevel()); renderLevels(); } }, el("span", { class: "tag" }),
+      draft.advs.length ? "Añadir otra versión avanzada" : "Añadir versión avanzada (opcional)"));
   }
   async function shrinkImage(file) {
     try {
@@ -445,17 +451,19 @@
     try {
       const prev = editingId ? exercises.find(x => x.id === editingId) : null;
       const e = { id: prev?.id || crypto.randomUUID(), student_id: prev?.student_id || studentId, name, position: draft.position || "" };
-      for (const { key } of LEVELS) {
-        const L = draft[key];
-        const old = prev?.[key]?.media;
-        if (key === "advanced" && !draft.hasAdv) { if (old?.path) toDelete.push(old.path); e.advanced = null; continue; }
+      const oldPaths = prev ? mediaPaths(prev) : [];
+      const toLevel = async (L, adv) => {
         let media = null;
         if (L.mode === "link") { const u = L.linkUrl.trim(); if (u && !/^https?:\/\//i.test(u)) throw new Error("link"); media = u ? { kind: "link", url: u } : null; }
         else if (L.pendingFile) { btn.textContent = L.pendingFile.type.startsWith("video") ? "Subiendo vídeo…" : "Subiendo foto…"; media = await upload(L.pendingFile); }
         else if (L.media && (L.media.kind === "image" || L.media.kind === "video")) media = L.media;
-        if (old?.path && old.path !== media?.path) toDelete.push(old.path);
-        e[key] = { dose: L.dose.trim(), instructions: L.instructions.trim(), variant: key === "advanced" ? L.variant.trim() : "", media };
-      }
+        return { dose: L.dose.trim(), instructions: L.instructions.trim(), variant: adv ? L.variant.trim() : "", media };
+      };
+      e.normal = await toLevel(draft.normal, false);
+      e.advs = [];
+      for (const L of draft.advs) { const lv = await toLevel(L, true); if (levelHasContent(lv)) e.advs.push(lv); }
+      const newPaths = mediaPaths(e);
+      oldPaths.forEach(pth => { if (!newPaths.includes(pth)) toDelete.push(pth); });
       if (prev) e.ord = prev.ord; else { const others = exOf(e.student_id); e.ord = others.length ? Math.max(...others.map(x => x.ord)) + 1 : 0; }
       const { error } = await sb.from("exercises").upsert(toRow(e));
       if (error) throw error;
@@ -480,6 +488,74 @@
     const paths = [...new Set(list.flatMap(mediaPaths))].filter(p => !pathInUse(p, ids));
     exercises = exercises.filter(x => !ids.includes(x.id));
     await removeFiles(paths);
+  }
+
+  // ---------- importar varios vídeos a la vez ----------
+  // Nombres tipo "01 - Puente.mp4" (normal) y "01.1 - Puente con marcha.mp4" (avanzado 1 del ejercicio 01)
+  let bulkGroups = [];
+  function parseFiles(files) {
+    const groups = new Map(); const loose = [];
+    for (const f of files) {
+      if (!/^(video|image)\//.test(f.type) && !/\.(mp4|mov|m4v|webm|jpe?g|png|heic|webp)$/i.test(f.name)) continue;
+      const base = f.name.replace(/\.[^.]+$/, "").trim();
+      const m = /^\s*(\d+)(?:[.,](\d+))?\s*[-–—_]\s*(.+?)\s*$/.exec(base);
+      if (!m) { loose.push({ main: Infinity, normal: { title: base, file: f }, advs: [] }); continue; }
+      const main = parseInt(m[1], 10), sub = m[2] ? parseInt(m[2], 10) : 0, title = m[3];
+      if (!groups.has(main)) groups.set(main, { main, normal: null, advs: [] });
+      const g = groups.get(main);
+      if (sub === 0) g.normal = { title, file: f }; else g.advs.push({ sub, title, file: f });
+    }
+    const list = [...groups.values()].sort((a, b) => a.main - b.main);
+    list.forEach(g => g.advs.sort((a, b) => a.sub - b.sub));
+    return list.concat(loose);
+  }
+  function openBulk() { bulkGroups = []; $("bFile").value = ""; renderBulk(); $("bulk").classList.add("open"); }
+  function renderBulk(progress) {
+    const box = $("bList"); box.replaceChildren();
+    const btn = $("bGo");
+    const tooBig = [];
+    bulkGroups.forEach(g => [g.normal, ...g.advs].forEach(x => { if (x && x.file.size > MAX_BYTES) tooBig.push(x.file.name); }));
+    btn.disabled = !bulkGroups.length || !!progress;
+    btn.textContent = progress || (bulkGroups.length ? "Crear " + bulkGroups.length + (bulkGroups.length === 1 ? " ejercicio" : " ejercicios") : "Crear ejercicios");
+    if (!bulkGroups.length) { box.append(el("p", { class: "hint", text: "Elige todos los vídeos de una vez. Usa nombres como “01 - Puente” para la versión normal y “01.1 - Puente con marcha”, “01.2 - …” para las avanzadas." })); return; }
+    if (tooBig.length) box.append(el("p", { class: "err", text: "Pesan más de 50 MB y se saltarán: " + tooBig.join(", ") }));
+    bulkGroups.forEach(g => {
+      const name = (g.normal || g.advs[0]).title;
+      const row = el("div", { class: "bulk-row" }, el("b", { text: name }));
+      if (!g.normal) row.append(el("span", { class: "hint", text: "Sin versión normal: se usa el primer avanzado como normal" }));
+      g.advs.forEach((a, i) => row.append(el("span", { class: "bulk-adv", text: (g.advs.length > 1 ? "Avanzado " + (i + 1) : "Avanzado") + ": " + a.title })));
+      box.append(row);
+    });
+  }
+  async function runBulk() {
+    const sid = studentId; if (!sid || !bulkGroups.length) return;
+    const total = bulkGroups.reduce((n, g) => n + (g.normal ? 1 : 0) + g.advs.length, 0);
+    let done = 0, created = 0;
+    const others = exOf(sid); let ord = others.length ? Math.max(...others.map(x => x.ord)) + 1 : 0;
+    const up = async (x) => {
+      renderBulk("Subiendo " + (done + 1) + " de " + total + "…");
+      const media = x.file.size > MAX_BYTES ? null : await upload(x.file);
+      done++; return media;
+    };
+    try {
+      for (const g of bulkGroups) {
+        let normalSrc = g.normal, advSrc = g.advs;
+        if (!normalSrc) { normalSrc = advSrc[0]; advSrc = advSrc.slice(1); }
+        const e = { id: crypto.randomUUID(), student_id: sid, name: normalSrc.title, position: "", ord: ord++ };
+        e.normal = { dose: "", instructions: "", variant: "", media: await up(normalSrc) };
+        e.advs = [];
+        for (const a of advSrc) e.advs.push({ dose: "", instructions: "", variant: a.title, media: await up(a) });
+        const { error } = await sb.from("exercises").insert(toRow(e));
+        if (error) throw error;
+        created++;
+      }
+      $("bulk").classList.remove("open");
+      toast(created + " ejercicios creados", 4000);
+    } catch {
+      toast("Se cortó a mitad: se crearon " + created + ". Revisa la conexión y prueba con los que faltan.", 6000);
+      renderBulk();
+    }
+    await refresh();
   }
 
   // ---------- alumnos ----------
@@ -518,7 +594,7 @@
       let r = await sb.from("students").insert(srows); if (r.error) throw r.error;
       const erows = data.exercises.map(e => toRow({ id: crypto.randomUUID(), student_id: map[e.studentId], name: e.name, ord: e.order, position: e.position,
         normal: e.normal ? { dose: e.normal.dose || "", instructions: e.normal.instructions || "", variant: "", media: null } : null,
-        advanced: e.advanced ? { dose: e.advanced.dose || "", instructions: e.advanced.instructions || "", variant: e.advanced.variant || "", media: null } : null }));
+        advs: e.advanced ? [{ dose: e.advanced.dose || "", instructions: e.advanced.instructions || "", variant: e.advanced.variant || "", media: null }] : [] }));
       r = await sb.from("exercises").insert(erows); if (r.error) throw r.error;
       toast("Fichas importadas. Ahora añade los vídeos a cada ejercicio.", 5000);
       await refresh();
@@ -587,6 +663,9 @@
         catch { toast("No se pudo eliminar."); }
       });
     });
+    $("bFile").addEventListener("change", () => { bulkGroups = parseFiles([...($("bFile").files || [])]); renderBulk(); });
+    $("bCancel").addEventListener("click", () => $("bulk").classList.remove("open"));
+    $("bGo").addEventListener("click", runBulk);
     $("cNo").addEventListener("click", () => $("confirm").classList.remove("open"));
     $("cYes").addEventListener("click", async () => { $("confirm").classList.remove("open"); const a = confirmAction; confirmAction = null; if (a) await a(); });
     for (const id of ["detail", "copy", "confirm"]) $(id).addEventListener("click", (ev) => { if (ev.target === $(id)) { if (id === "detail") closeDetail(); else $(id).classList.remove("open"); } });
